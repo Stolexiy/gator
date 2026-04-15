@@ -1,12 +1,10 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	_ "github.com/lib/pq"
 	"github.com/stolexiy/gator/internal/config"
@@ -21,28 +19,6 @@ type state struct {
 type command struct {
 	name string
 	arg  []string
-}
-
-func handlerLogin(s *state, cmd command) error {
-	if len(cmd.arg) < 1 {
-		return fmt.Errorf("username is required")
-	}
-
-	u, err := s.db.GetUser(context.Background(), cmd.arg[0])
-	if err != nil {
-		if strings.Contains(err.Error(), "no rows in result set") {
-			return fmt.Errorf("user %s not exists", cmd.arg[0])
-		}
-		return err
-	}
-
-	err = s.cfg.SetUser(u.Name)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("current user has been set")
-	return nil
 }
 
 type commands struct {
@@ -71,6 +47,7 @@ func main() {
 
 	cmds.register("login", handlerLogin)
 	cmds.register("register", registerHandler)
+	cmds.register("reset", resetHandler)
 
 	args := os.Args
 
