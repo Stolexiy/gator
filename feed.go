@@ -96,3 +96,18 @@ func handleAddfeed(st *state, cmd command) error {
 	fmt.Println(f)
 	return nil
 }
+
+func handleFeeds(st *state, cmd command) error {
+	feeds, err := st.db.GetFeeds(context.Background())
+	if err != nil {
+		return err
+	}
+	for _, f := range feeds {
+		u, err := st.db.GetUserById(context.Background(), f.UserID)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("- %s, URL: %s, Created by: %s\n", f.Name, f.Url, u.Name)
+	}
+	return nil
+}
