@@ -94,6 +94,12 @@ func handleAddfeed(st *state, cmd command) error {
 	}
 
 	fmt.Println(f)
+
+	err = followFeed(st, f.Url)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -109,5 +115,58 @@ func handleFeeds(st *state, cmd command) error {
 		}
 		fmt.Printf("- %s, URL: %s, Created by: %s\n", f.Name, f.Url, u.Name)
 	}
+	return nil
+}
+
+func handleFollow(st *state, cmd command) error {
+	if len(cmd.arg) < 1 {
+		return fmt.Errorf("not enought arguments, expecting feed url")
+	}
+
+	err := followFeed(st, cmd.arg[0])
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func handleFollowing(st *state, cmd command) error {
+	ff, err := st.db.GetFeedFollowsForUser(context.Background(), st.cfg.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	for _, f := range ff {
+		fmt.Printf("- %s\n", f.FeedName)
+	}
+	return nil
+}
+
+func followFeed(st *state, feed_url string) error {
+	u, err := st.db.GetUser(context.Background(), st.cfg.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	f, err := st.db.GetFeedByUrl(context.Background(), feed_url)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+	params := database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		CreatedAt: now,
+		UpdatedAt: now,
+		UserID:    u.ID,
+		FeedID:    f.ID,
+	}
+	ff, err := st.db.CreateFeedFollow(context.Background(), params)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("User %s is following %s feed now\n", ff.UserName, ff.FeedName)
 	return nil
 }
