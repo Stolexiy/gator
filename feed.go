@@ -137,6 +137,26 @@ func handleFollowing(st *state, cmd command, user database.User) error {
 	return nil
 }
 
+func handleUnfollow(st *state, cmd command, user database.User) error {
+	if len(cmd.arg) < 1 {
+		return fmt.Errorf("not enought arguments, expecting feed url")
+	}
+
+	feed, err := st.db.GetFeedByUrl(context.Background(), cmd.arg[0])
+	if err != nil {
+		return err
+	}
+
+	st.db.DeleteFeedFollow(context.Background(), database.DeleteFeedFollowParams{
+		UserID: user.ID,
+		FeedID: feed.ID,
+	})
+
+	fmt.Printf("user %s unfollowed the \"%s\" feed\n", user.Name, feed.Name)
+
+	return nil
+}
+
 func followFeed(st *state, feed_url string, user database.User) error {
 	f, err := st.db.GetFeedByUrl(context.Background(), feed_url)
 	if err != nil {
