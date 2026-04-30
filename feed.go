@@ -68,25 +68,19 @@ func handleAgg(st *state, cmd command) error {
 	return nil
 }
 
-func handleAddfeed(st *state, cmd command) error {
+func handleAddfeed(st *state, cmd command, user database.User) error {
 	if len(cmd.arg) < 2 {
 		return fmt.Errorf("not enought arguments, expecting feed name and url")
 	}
 
 	now := time.Now()
-
-	u, err := st.db.GetUser(context.Background(), st.cfg.CurrentUserName)
-	if err != nil {
-		return err
-	}
-
 	args := database.CreateFeedParams{
 		ID:        uuid.New(),
 		CreatedAt: now,
 		UpdatedAt: now,
 		Name:      cmd.arg[0],
 		Url:       cmd.arg[1],
-		UserID:    u.ID,
+		UserID:    user.ID,
 	}
 	f, err := st.db.CreateFeed(context.Background(), args)
 	if err != nil {
@@ -95,7 +89,7 @@ func handleAddfeed(st *state, cmd command) error {
 
 	fmt.Println(f)
 
-	err = followFeed(st, f.Url)
+	err = followFeed(st, f.Url, user)
 	if err != nil {
 		return err
 	}
@@ -118,12 +112,12 @@ func handleFeeds(st *state, cmd command) error {
 	return nil
 }
 
-func handleFollow(st *state, cmd command) error {
+func handleFollow(st *state, cmd command, user database.User) error {
 	if len(cmd.arg) < 1 {
 		return fmt.Errorf("not enought arguments, expecting feed url")
 	}
 
-	err := followFeed(st, cmd.arg[0])
+	err := followFeed(st, cmd.arg[0], user)
 	if err != nil {
 		return err
 	}
@@ -131,8 +125,8 @@ func handleFollow(st *state, cmd command) error {
 	return nil
 }
 
-func handleFollowing(st *state, cmd command) error {
-	ff, err := st.db.GetFeedFollowsForUser(context.Background(), st.cfg.CurrentUserName)
+func handleFollowing(st *state, cmd command, user database.User) error {
+	ff, err := st.db.GetFeedFollowsForUser(context.Background(), user.Name)
 	if err != nil {
 		return err
 	}
@@ -143,12 +137,7 @@ func handleFollowing(st *state, cmd command) error {
 	return nil
 }
 
-func followFeed(st *state, feed_url string) error {
-	u, err := st.db.GetUser(context.Background(), st.cfg.CurrentUserName)
-	if err != nil {
-		return err
-	}
-
+func followFeed(st *state, feed_url string, user database.User) error {
 	f, err := st.db.GetFeedByUrl(context.Background(), feed_url)
 	if err != nil {
 		return err
@@ -159,7 +148,7 @@ func followFeed(st *state, feed_url string) error {
 		ID:        uuid.New(),
 		CreatedAt: now,
 		UpdatedAt: now,
-		UserID:    u.ID,
+		UserID:    user.ID,
 		FeedID:    f.ID,
 	}
 	ff, err := st.db.CreateFeedFollow(context.Background(), params)
