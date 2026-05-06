@@ -56,6 +56,7 @@ func main() {
 	cmds.register("follow", middlewareLoggedIn(handleFollow))
 	cmds.register("unfollow", middlewareLoggedIn(handleUnfollow))
 	cmds.register("following", middlewareLoggedIn(handleFollowing))
+	cmds.register("browse", handleBrowse)
 
 	args := os.Args
 

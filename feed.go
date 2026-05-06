@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/xml"
 	"fmt"
 	"html"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -69,12 +72,12 @@ func handleAgg(st *state, cmd command) error {
 		return err
 	}
 
-	fmt.Printf("collectiong feeds every %s", cmd, cmd.arg[0])
+	fmt.Printf("collectiong feeds every %s\n", cmd, cmd.arg[0])
 
 	tick := time.NewTicker(dur)
 	defer tick.Stop()
 	for ; ; <-tick.C {
-		fmt.Printf("fetching feed at %s", time.Now())
+		fmt.Printf("fetching feeds at %s\n", time.Now())
 		err = scrapeFeeds(st)
 		if err != nil {
 			return err
@@ -172,6 +175,29 @@ func handleUnfollow(st *state, cmd command, user database.User) error {
 	return nil
 }
 
+func handleBrowse(st *state, cmd command) error {
+	limit := 2
+	if len(cmd.arg) >= 1 {
+		val, err := strconv.Atoi(cmd.arg[0])
+		if err == nil {
+			limit = val
+		} else {
+			return err
+		}
+	}
+
+	posts, err := st.db.GetPosts(context.Background(), int32(limit))
+	if err != nil {
+		return err
+	}
+
+	for _, post := range posts {
+		fmt.Printf("- %s\n", post.Title)
+	}
+
+	return nil
+}
+
 func followFeed(st *state, feed_url string, user database.User) error {
 	f, err := st.db.GetFeedByUrl(context.Background(), feed_url)
 	if err != nil {
@@ -211,8 +237,33 @@ func scrapeFeeds(st *state) error {
 		return err
 	}
 
+	now := time.Now()
 	for _, item := range feedData.Channel.Item {
-		fmt.Println(item.Title)
+		pubTime, err := time.Parse("Mon Jan 2 15:04:05 MST 2006", item.PubDate)
+		if err != nil {
+			pubTime, err = time.Parse("Mon, 02 Jan 2006 15:04:05 +0000", item.PubDate)
+		}
+		if err != nil {
+			return err
+		}
+
+		args := database.CreatePostParams{
+			ID:          uuid.New(),
+			CreatedAt:   now,
+			UpdatedAt:   now,
+			Title:       item.Title,
+			Url:         item.Link,
+			Description: sql.NullString{String: item.Description, Valid: item.Description != ""},
+			PublishedAt: pubTime,
+			FeedID:      feed.ID,
+		}
+		post, err := st.db.CreatePost(context.Background(), args)
+		if err != nil && !strings.Contains(err.Error(), "duplicate key value") {
+			return err
+		}
+		if err == nil {
+			fmt.Printf("created new post - %s", post.Title)
+		}
 	}
 
 	return nil
